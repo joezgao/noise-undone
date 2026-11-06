@@ -1,6 +1,8 @@
 # Noise, undone
 
-![4,000 cyan points that started as pure noise, now settled into a trefoil knot, each trailing a faint streak of its path](screenshots/shot-3-knot.png)
+[![Noise, undone: 4,000 points of noise settling into a glowing trefoil knot](loop/noise-loop.gif)](loop/noise-loop.mp4)
+
+<sub>8-second loop. Click for the MP4 (1280×720, 2.2 MB); the GIF above is 960×540, 5.3 MB.</sub>
 
 A tiny diffusion model, trained from scratch, running entirely in the browser. It starts with 4,000 points of pure Gaussian noise and moves them, step by step, into a trefoil knot. You watch it happen in 3D.
 

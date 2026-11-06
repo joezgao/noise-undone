@@ -16,10 +16,10 @@ python3 -m http.server 8000   # then open http://localhost:8000/noise-undone.htm
 
 | Control | What it does |
 |---|---|
-| **Play / Pause** (<kbd>Space</kbd>) | runs the reverse process from t = 100 (noise) to t = 0 (knot); playback slows near the end, where the knot actually forms |
-| **Scrubber** (<kbd>←</kbd> <kbd>→</kbd>) | moves through the diffusion steps |
+| **Play / Pause** (<kbd>Space</kbd>) | runs the reverse process from t = 100 (noise) to t = 0 (knot) in about 8 s, at an even pace in log noise level, and settles gently into t = 0 |
+| **Scrubber** (<kbd>←</kbd> <kbd>→</kbd>) | the same log-noise axis; ticks mark t = 100, 50, 20, 10, 5, 2, 0, and t = 10 sits mid-track, because the knot only becomes legible below t ≈ 15 |
 | **Re-noise** (<kbd>R</kbd>) | runs the *forward* process until the knot is gone, then the model draws a new knot from that new noise |
-| **Field** (<kbd>F</kbd>) | arrows on the plane z = 0 showing −ε̂(x, t), the direction the model pushes a point (proportional to the learned score) |
+| **Guess** (<kbd>G</kbd>) | for every point, the network's estimate of the clean point it came from, x̂₀ = (x_t − √(1−ᾱ_t) ε̂) / √ᾱ_t, drawn in the accent colour, with a faint line from one point in eight to its guess: the denoising direction (by Tweedie's formula, the learned score) |
 | Drag / scroll / double-click | orbit / zoom / reset |
 
 Points start grey and take on the cyan accent as the knot forms; each keeps a fading trail of its last 14 steps. Add `?ddpm` to the URL for the stochastic sampler (jittery Brownian paths instead of smooth curves). With `prefers-reduced-motion` there is no autoplay or camera drift, and the main button becomes **Step** (10 diffusion steps per press).
@@ -49,12 +49,13 @@ Points start grey and take on the cyan accent as the knot forms; each keeps a fa
 - The data is one fixed 3D shape with no conditioning: a small, faithful DDPM, not a demonstration of scale.
 - The loss alone says little about quality; the distance-to-knot numbers are the real check. About 0.4 % of DDIM samples land off the tube.
 - Frame rate was not measured on a real GPU. Main-thread JavaScript is about 1 ms per frame; on a slow phone, computing the 100 steps is the bottleneck.
-- The knot forms late: under the cosine schedule it only becomes visible in roughly the last 10 of 100 steps, which is why playback slows there.
+- A guess is not where a point ends up: x̂₀ is a posterior mean, averaged over every clean point that could have produced x_t. At t = 20 the points are still a cloud (median 0.36 from the knot) while their guesses already trace it (0.083).
+- The knot forms late: under the cosine schedule the points only show it in roughly the last 10–15 of 100 steps. The log-noise axis gives those steps half the track, and Guess shows the knot already present in the network's predictions.
 
 ## In this repository
 
 - `noise-undone.html`: the piece
-- `screenshots/`: t = 100, t = 20, t = 0, the field at t = 4, and a phone view
+- `screenshots/`: t = 100, t = 20, t = 0, the guesses, and a phone view
 
 The NumPy training, gradient-check and export scripts are not in this repository yet.
 
@@ -62,4 +63,4 @@ The NumPy training, gradient-check and export scripts are not in this repository
 
 Code: MIT. See [LICENSE](LICENSE). three.js is MIT; the fonts are under the SIL Open Font License.
 
-Built with Claude.
+Built with Claude for Joe Gao.

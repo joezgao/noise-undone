@@ -32,8 +32,21 @@ h1{font-family:var(--serif);font-weight:400;font-style:italic;font-size:30px;let
 .meta{font-size:11px;letter-spacing:.04em;color:#5d5d5d;text-align:right;line-height:1.7;white-space:nowrap;font-variant-numeric:tabular-nums}
 .meta span{color:var(--dim)}
 .meta .acc{color:var(--accent)}
-.dock{position:fixed;left:0;right:0;bottom:0;padding:0 32px 26px;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none}
+.dock{position:fixed;left:0;right:0;bottom:0;padding:0 32px 26px;display:flex;flex-direction:column;align-items:center;gap:18px;pointer-events:none}
 .scrub{pointer-events:auto;width:min(760px,100%);display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px}
+.track{position:relative}
+.ticks{position:absolute;left:6.5px;right:6.5px;top:25px;height:12px;pointer-events:none}
+.ticks span{position:absolute;transform:translateX(-50%);font-size:10px;line-height:1;color:#5d5d5d;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ticks span::before{content:"";position:absolute;left:50%;top:-8px;width:1px;height:4px;background:#333}
+.legend{position:absolute;left:16px;right:16px;bottom:100%;margin-bottom:10px;display:flex;gap:4px 18px;justify-content:center;flex-wrap:wrap;font-size:12px;color:var(--dim);opacity:0;transform:translateY(4px);transition:opacity .35s,transform .35s;pointer-events:none}
+.legend.on{opacity:1;transform:none}
+.legend i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px;vertical-align:1px}
+.legend i.now{background:#7b8486}
+.legend i.g{background:var(--accent);box-shadow:0 0 6px var(--accent)}
+.legend em{font-family:var(--serif);font-size:13.5px;color:var(--fg)}
+.legend .hat{position:relative}
+.legend .hat::after{content:"\02C6";position:absolute;left:.14em;top:-.28em;font-style:normal;font-size:.9em}
+.legend sub{font-size:.68em;vertical-align:-.25em;line-height:0;margin-left:1px}
 .end{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#5d5d5d;white-space:nowrap}
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;margin:0;cursor:pointer;
   --p:0%}
@@ -68,7 +81,8 @@ button{font:500 13px/1 var(--sans);letter-spacing:.02em;border:0;border-radius:9
   .meta{text-align:left;white-space:normal;font-size:10.5px}
   .meta{display:flex;gap:0 14px;flex-wrap:wrap}
   .meta .wide{display:none}
-  .dock{padding:0 16px max(16px,env(safe-area-inset-bottom));gap:8px}
+  .dock{padding:0 16px max(16px,env(safe-area-inset-bottom));gap:16px}
+  .legend .wide{display:none}
   .scrub{gap:10px}
   .controls{gap:8px}
   button{padding:10px 14px;font-size:12.5px}
@@ -80,7 +94,7 @@ button{font:500 13px/1 var(--sans);letter-spacing:.02em;border:0;border-radius:9
 </head>
 <body>
 <canvas id="stage" aria-label="3D view of 4,000 points moving from noise into a knot"></canvas>
-<header>
+<header id="head">
   <div>
     <h1>Noise, undone</h1>
     <p class="caption">
@@ -91,17 +105,21 @@ button{font:500 13px/1 var(--sans);letter-spacing:.02em;border:0;border-radius:9
   </div>
   <div class="meta" id="meta"></div>
 </header>
-<div class="dock">
+<div class="dock" id="dock">
+  <div class="legend" id="legend" aria-live="polite"><span><i class="now"></i>each point now</span><span><i class="g"></i>the network&rsquo;s guess<span class="wide"> of its clean point</span>, <em class="x0" aria-label="x-hat zero"><span class="hat">x</span><sub>0</sub></em></span></div>
   <div class="scrub">
     <span class="end">Noise</span>
-    <input type="range" id="scrub" min="0" max="100" step="0.01" value="0" aria-label="Diffusion step, from t = T (noise) to t = 0 (shape)">
+    <div class="track">
+      <input type="range" id="scrub" min="0" max="1000" step="1" value="0" aria-label="Diffusion step, from t = T (noise) to t = 0 (knot)">
+      <div class="ticks" id="ticks" aria-hidden="true"></div>
+    </div>
     <span class="end">Knot</span>
   </div>
   <div class="controls">
     <button id="play" aria-pressed="false">Play</button>
     <div class="readout" id="readout" aria-live="off">t = 100<small>noise</small></div>
     <button id="renoise" class="ghost">Re-noise</button>
-    <button id="field" class="ghost" aria-pressed="false">Field</button>
+    <button id="guess" class="ghost" aria-pressed="false">Guess</button>
   </div>
 </div>
 <div class="fallback" id="fallback">This piece needs WebGL, which this browser has turned off.</div>
@@ -173,6 +191,10 @@ function tick(id) {
   if (j.kind === 'reverse') {
     const t = j.t, n = j.n, x = j.x, e = eps(x, n, t);
     const ab = M.abar[t], abp = M.abar[t - 1], sa = Math.sqrt(ab), s1 = Math.sqrt(1 - ab);
+    // the network's estimate of the clean point, x0_hat = (x_t - sqrt(1 - abar_t) eps_hat) / sqrt(abar_t), clipped to +-3.
+    // Both samplers use it: DDIM steps toward it, and the page draws it when "Guess" is on.
+    const g = new Float32Array(j.n0 * 3);
+    for (let i = 0; i < j.n0 * 3; i++) { const v = (x[i] - s1 * e[i]) / sa; g[i] = v > 3 ? 3 : v < -3 ? -3 : v; }
     if (j.sampler === 'ddim') {
       // deterministic DDIM: estimate the clean point, then step to the noise level of t-1
       const ca = Math.sqrt(abp), cb = Math.sqrt(1 - abp);
@@ -186,13 +208,8 @@ function tick(id) {
       for (let i = 0; i < n * 3; i++) x[i] = (x[i] - k * e[i]) * ia + (t > 1 ? sd * gauss() : 0);
     }
     j.t = t - 1;
-    postMessage({ type: 'step', id, t: j.t, x: x.slice(0, j.n0 * 3) });
+    postMessage({ type: 'step', id, t: j.t, x: x.slice(0, j.n0 * 3), g }, [g.buffer]);
     if (j.t > 0) later(id); else job = null;
-  } else if (j.kind === 'field') {
-    const t = j.order[j.i++];
-    const e = eps(j.pts, j.n, t);
-    postMessage({ type: 'field', id, t, e: e.slice(0, j.n0 * 3) });
-    if (j.i < j.order.length) later(id); else job = null;
   }
 }
 function pad(x) { const n0 = x.length / 3, n = Math.ceil(n0 / 4) * 4, y = new Float32Array(n * 3); y.set(x); return { n0, n, y }; }
@@ -200,7 +217,6 @@ onmessage = (e) => {
   const d = e.data;
   if (d.type === 'init') { M = prep(d.model); postMessage({ type: 'ready' }); return; }
   if (d.type === 'reverse') { const { n0, n, y } = pad(d.x); seed = d.seed; job = { kind: 'reverse', id: d.id, x: y, n, n0, t: d.t, sampler: d.sampler }; tick(d.id); }
-  if (d.type === 'field') { const { n0, n, y } = pad(d.pts); job = { kind: 'field', id: d.id, pts: y, n, n0, order: d.order, i: 0 }; tick(d.id); }
   if (d.type === 'cancel') job = null;
 };
 </script>
@@ -256,6 +272,8 @@ const workerURL = URL.createObjectURL(new Blob([$('worker-src').textContent], { 
 const NW = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1));
 const slices = [];
 { const per = Math.ceil(N / NW / 4) * 4; for (let i = 0; i < NW; i++) slices.push([i * per, Math.min(N, (i + 1) * per)]); }
+// guesses[t] = the network's clean-point estimate x0_hat for every particle, made from frames[t] (t >= 1)
+const guesses = new Array(T + 1).fill(null);
 const workers = [], got = new Array(T + 1).fill(0);
 let ready = 0, lastStepMs = 0, stepStamp = 0;
 for (let w = 0; w < NW; w++) {
@@ -266,8 +284,11 @@ for (let w = 0; w < NW; w++) {
     if (d.type !== 'step' || d.id !== jobId) return;
     if (!frames[d.t]) frames[d.t] = new Float32Array(N * 3);
     frames[d.t].set(d.x, slices[w][0] * 3);
+    if (!guesses[d.t + 1]) guesses[d.t + 1] = new Float32Array(N * 3);
+    guesses[d.t + 1].set(d.g, slices[w][0] * 3);
     if (++got[d.t] === NW) {
       lowest = d.t;
+      if (d.t === 0) guesses[0] = frames[0];   // at t = 0 the point is its own clean estimate
       const now = performance.now(); lastStepMs = now - stepStamp; stepStamp = now;
     }
   };
@@ -297,24 +318,19 @@ function forwardFrom(t0) {
   lowest = t0; dir = 1;
 }
 
-// field: the network's predicted noise on a slice through the knot (z = 0), for every t
-const G = 21, GR = 1.9;
-const gridPts = new Float32Array(G * G * 3);
-for (let i = 0; i < G; i++) for (let j = 0; j < G; j++) { const k = (i * G + j) * 3; gridPts[k] = -GR + 2 * GR * j / (G - 1); gridPts[k + 1] = -GR + 2 * GR * i / (G - 1); gridPts[k + 2] = 0; }
-const fieldFrames = new Array(T + 1).fill(null);
-let fieldWorker = null;
-function ensureField() {
-  if (fieldWorker) return;
-  fieldWorker = new Worker(workerURL);
-  const start = Math.max(1, Math.round(tp));
-  const order = [];
-  for (let d = 0; d <= T; d++) { if (start - d >= 1) order.push(start - d); if (d && start + d <= T) order.push(start + d); }
-  fieldWorker.onmessage = (e) => {
-    const d = e.data;
-    if (d.type === 'ready') { fieldWorker.postMessage({ type: 'field', id: 1, pts: gridPts, order }); return; }
-    if (d.type === 'field') fieldFrames[d.t] = d.e;
-  };
-  fieldWorker.postMessage({ type: 'init', model: modelMsg });
+// a guess is usable when its step finished in the current reverse run (re-noising runs no network)
+function guessAt(t) { return dir === -1 && (t === 0 ? lowest === 0 : lowest <= t - 1) ? guesses[t] : null; }
+
+// ---------- time axis: the scrubber and playback move evenly in log noise level, not in t ----------
+// u(t) = 1 - ln(1 + sigma_t / c) / ln(1 + sigma_T / c), sigma_t = sqrt(1 - abar_t). Under the cosine schedule the knot
+// only shows below t ~ 15, so an axis linear in t spends most of its length on a cloud that barely changes.
+const UC = 0.1, SIG = MODEL.abar.map((a) => Math.sqrt(Math.max(0, 1 - a)));
+const UT = SIG.map((s) => 1 - Math.log1p(s / UC) / Math.log1p(SIG[T] / UC));
+function uOf(t) { const i = Math.min(T - 1, Math.floor(t)), f = t - i; return UT[i] + (UT[i + 1] - UT[i]) * f; }
+function tOf(u) {
+  if (u >= 1) return 0; if (u <= 0) return T;
+  let i = 0; while (i < T - 1 && UT[i + 1] >= u) i++;      // UT decreases with t
+  return i + (UT[i] - u) / (UT[i] - UT[i + 1]);
 }
 
 // ---------- three.js ----------
@@ -325,7 +341,7 @@ catch (err) { $('fallback').style.display = 'grid'; return; }
 renderer.setClearColor(0x000000, 1);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
-const U = { uDpr: { value: 1 }, uScale: { value: 1 }, uForm: { value: 0 }, uAccent: { value: ACCENT }, uTrail: { value: 1 }, uOff: { value: 0 }, uK: { value: K }, uField: { value: 0 } };
+const U = { uDpr: { value: 1 }, uScale: { value: 1 }, uForm: { value: 0 }, uAccent: { value: ACCENT }, uTrail: { value: 1 }, uOff: { value: 0 }, uK: { value: K }, uGuess: { value: 0 } };
 
 // particles
 const pGeo = new THREE.BufferGeometry();
@@ -344,12 +360,12 @@ const points = new THREE.Points(pGeo, new THREE.ShaderMaterial({
       vD = clamp((-mv.z - 6.0) / 6.0, 0.0, 1.0);
     }`,
   fragmentShader: `
-    uniform float uForm, uField; uniform vec3 uAccent; varying float vD;
+    uniform float uForm, uGuess; uniform vec3 uAccent; varying float vD;
     void main(){
       float r = length(gl_PointCoord - 0.5);
       float a = smoothstep(0.5, 0.08, r);
-      vec3 c = mix(vec3(0.55, 0.6, 0.62), uAccent, uForm);
-      gl_FragColor = vec4(c * a * mix(0.9, 0.8, uForm) * (1.0 - 0.45 * vD) * (1.0 - 0.5 * uField), 1.0);
+      vec3 c = mix(vec3(0.55, 0.6, 0.62), uAccent, uForm * (1.0 - uGuess));
+      gl_FragColor = vec4(c * a * mix(0.9, 0.8, uForm) * (1.0 - 0.45 * vD) * (1.0 - 0.4 * uGuess), 1.0);
     }`,
 }));
 scene.add(points);
@@ -375,53 +391,59 @@ const trails = new THREE.LineSegments(tGeo, new THREE.ShaderMaterial({
       gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
     }`,
   fragmentShader: `
-    uniform vec3 uAccent; uniform float uTrail, uForm, uField; varying float vA;
-    void main(){ gl_FragColor = vec4(mix(vec3(0.5, 0.56, 0.6), uAccent, uForm) * vA * uTrail * 0.16 * (1.0 - 0.75 * uField), 1.0); }`,
+    uniform vec3 uAccent; uniform float uTrail, uForm, uGuess; varying float vA;
+    void main(){ gl_FragColor = vec4(mix(vec3(0.5, 0.56, 0.6), uAccent, uForm * (1.0 - uGuess)) * vA * uTrail * 0.16 * (1.0 - 0.7 * uGuess), 1.0); }`,
 }));
 trails.frustumCulled = false; points.frustumCulled = false;
 scene.add(trails);
 
-// field arrows: one segment per grid point, fading in from tail to head
-const fGeo = new THREE.BufferGeometry();
-const fPos = new Float32Array(G * G * 2 * 3), fA = new Float32Array(G * G * 2);
-for (let i = 0; i < G * G; i++) { fA[2 * i] = 0; fA[2 * i + 1] = 1; fPos.set(gridPts.subarray(i * 3, i * 3 + 3), i * 6); fPos.set(gridPts.subarray(i * 3, i * 3 + 3), i * 6 + 3); }
-fGeo.setAttribute('position', new THREE.BufferAttribute(fPos, 3).setUsage(THREE.DynamicDrawUsage));
-fGeo.setAttribute('aA', new THREE.BufferAttribute(fA, 1));
-const arrows = new THREE.LineSegments(fGeo, new THREE.ShaderMaterial({
+// guess layer: the network's clean-point estimate x0_hat for every particle (accent), and for one particle
+// in 8 a faint line from where it is now to its guess, so the denoising direction at each point is visible
+const GL = 8, NL = Math.ceil(N / GL);
+const gGeo = new THREE.BufferGeometry(), gPos = new Float32Array(N * 3);
+gGeo.setAttribute('position', new THREE.BufferAttribute(gPos, 3).setUsage(THREE.DynamicDrawUsage));
+gGeo.setAttribute('aS', new THREE.BufferAttribute(pSize, 1));
+const ghosts = new THREE.Points(gGeo, new THREE.ShaderMaterial({
   uniforms: U, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-  vertexShader: `attribute float aA; varying float vA; void main(){ vA = aA; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-  fragmentShader: `uniform float uField; varying float vA; void main(){ gl_FragColor = vec4(vec3(0.95) * (0.08 + 0.85 * vA * vA) * uField, 1.0); }`,
+  vertexShader: `
+    attribute float aS; uniform float uDpr, uScale;
+    void main(){
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      gl_Position = projectionMatrix * mv;
+      gl_PointSize = aS * uDpr * uScale * 2.6 * (10.0 / -mv.z);
+    }`,
+  fragmentShader: `
+    uniform vec3 uAccent; uniform float uGuess;
+    void main(){
+      float r = length(gl_PointCoord - 0.5);
+      gl_FragColor = vec4(uAccent * smoothstep(0.5, 0.05, r) * 0.85 * uGuess, 1.0);
+    }`,
 }));
-arrows.frustumCulled = false;
-// faint grid dots + a frame around the slice
-const dots = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(gridPts, 3)), new THREE.ShaderMaterial({
+const lGeo = new THREE.BufferGeometry(), lPos = new Float32Array(NL * 2 * 3), lE = new Float32Array(NL * 2);
+for (let i = 0; i < NL; i++) lE[2 * i + 1] = 1;
+lGeo.setAttribute('position', new THREE.BufferAttribute(lPos, 3).setUsage(THREE.DynamicDrawUsage));
+lGeo.setAttribute('aE', new THREE.BufferAttribute(lE, 1));
+const guessLines = new THREE.LineSegments(lGeo, new THREE.ShaderMaterial({
   uniforms: U, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-  vertexShader: `uniform float uDpr; void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_PointSize = 2.0 * uDpr; }`,
-  fragmentShader: `uniform float uField; void main(){ gl_FragColor = vec4(vec3(0.5) * uField, 1.0); }`,
+  vertexShader: `attribute float aE; varying float vE; void main(){ vE = aE; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `uniform vec3 uAccent; uniform float uGuess; varying float vE; void main(){ gl_FragColor = vec4(mix(vec3(0.5), uAccent, vE) * (0.05 + 0.2 * vE) * uGuess, 1.0); }`,
 }));
-const frameGeo = new THREE.BufferGeometry().setFromPoints([[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => new THREE.Vector3(a * (GR + 0.18), b * (GR + 0.18), 0)));
-const sliceFrame = new THREE.LineLoop(frameGeo, new THREE.ShaderMaterial({
-  uniforms: U, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-  vertexShader: `void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-  fragmentShader: `uniform float uField; void main(){ gl_FragColor = vec4(vec3(0.16) * uField, 1.0); }`,
-}));
-const fieldGroup = new THREE.Group(); fieldGroup.add(arrows, dots, sliceFrame); fieldGroup.visible = false;
-scene.add(fieldGroup);
-let fieldOn = false, fieldVis = 0, fieldShownT = -1;
-function updateArrows(t) {
-  const e = fieldFrames[t]; if (!e) return false;
-  // arrow = minus the predicted noise: the direction the step pushes a point toward the data
-  const mags = new Float32Array(G * G);
-  for (let i = 0; i < G * G; i++) mags[i] = Math.hypot(e[i * 3], e[i * 3 + 1], e[i * 3 + 2]);
-  const sorted = Array.from(mags).sort((a, b) => a - b), ref = sorted[Math.floor(0.9 * sorted.length)] || 1;
-  const L = 0.2;
-  for (let i = 0; i < G * G; i++) {
-    const s = L * Math.min(1.25, mags[i] / ref) / (mags[i] || 1);
-    fPos[i * 6 + 3] = gridPts[i * 3] - s * e[i * 3];
-    fPos[i * 6 + 4] = gridPts[i * 3 + 1] - s * e[i * 3 + 1];
-    fPos[i * 6 + 5] = gridPts[i * 3 + 2] - s * e[i * 3 + 2];
+ghosts.frustumCulled = false; guessLines.frustumCulled = false;
+const guessGroup = new THREE.Group(); guessGroup.add(guessLines, ghosts); guessGroup.visible = false;
+scene.add(guessGroup);
+let guessOn = false, guessVis = 0;
+function updateGuess(t) {
+  const i0 = Math.floor(t), i1 = Math.min(T, i0 + 1), f = t - i0;
+  let a = guessAt(i0), b = guessAt(i1);
+  if (!a && !b) return false;
+  if (!a) { a = b; } if (!b || f < 1e-6) b = a;
+  for (let i = 0; i < N * 3; i++) gPos[i] = a[i] + (b[i] - a[i]) * f;
+  for (let k = 0; k < NL; k++) {
+    const q = k * GL * 3, o = k * 6;
+    lPos[o] = pPos[q]; lPos[o + 1] = pPos[q + 1]; lPos[o + 2] = pPos[q + 2];
+    lPos[o + 3] = gPos[q]; lPos[o + 4] = gPos[q + 1]; lPos[o + 5] = gPos[q + 2];
   }
-  fGeo.attributes.position.needsUpdate = true;
+  gGeo.attributes.position.needsUpdate = true; lGeo.attributes.position.needsUpdate = true;
   return true;
 }
 
@@ -435,25 +457,31 @@ function layout() {
   renderer.setPixelRatio(dpr); renderer.setSize(W, Hh, false);
   U.uDpr.value = dpr; U.uScale.value = narrow ? 0.85 : 1;
   camera.aspect = W / Hh;
-  // fit a ~5.4-unit wide scene; on a phone the scene sits between the caption and the dock
-  const fitW = narrow ? 4.5 : 5.6, fitH = 5.2;
-  const vfov = camera.fov * Math.PI / 180, hf = 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect);
-  view.dist = Math.max(fitH / 2 / Math.tan(vfov / 2), fitW / 2 / Math.tan(hf / 2)) * 1.12;
-  camera.setViewOffset(W, Hh, 0, narrow ? -Hh * 0.03 : 0, W, Hh);
+  // fit the knot (about 3.0 x 2.7 units) into the free band between the caption and the dock, and centre it there:
+  // ~66 % of the band's height, and at most 42 % of the width on a desktop or 76 % on a phone
+  const top = $('head').getBoundingClientRect().bottom, bot = $('dock').getBoundingClientRect().top;
+  const band = Math.max(120, bot - top);
+  const visH = Math.max(2.7 / 0.66 * Hh / band, 3.0 / (narrow ? 0.76 : 0.42) / camera.aspect);
+  view.dist = visH / 2 / Math.tan(camera.fov * Math.PI / 360);
+  camera.setViewOffset(W, Hh, 0, Hh / 2 - (bot - top > 120 ? (top + bot) / 2 : Hh / 2), W, Hh);
   camera.updateProjectionMatrix();
 }
 
 // ---------- UI ----------
-const playBtn = $('play'), scrub = $('scrub'), readout = $('readout'), meta = $('meta'), renoiseBtn = $('renoise'), fieldBtn = $('field');
+const playBtn = $('play'), scrub = $('scrub'), readout = $('readout'), meta = $('meta'), renoiseBtn = $('renoise'), guessBtn = $('guess'), legend = $('legend');
 const fmt = (n) => n.toLocaleString('en-US');
 function stepLabel() { return reduceMotion.matches ? 'Step' : 'Play'; }
 function setPlaying(on) {
+  if (on && !playing) playT = 0;
   playing = on;
   playBtn.textContent = on ? 'Pause' : stepLabel();
   playBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
 }
 let holdT = 0, autoRev = 0;
+let playT = 0;
+const PLAY_S = 7, RENOISE_S = 4.5;      // seconds for a full reverse / forward run on a machine that keeps up
 function play() {
+  playT = 0;
   if (dir === -1 && tp <= 0.0001) tp = T;          // replay the same run from pure noise
   if (dir === 1 && tp >= T - 0.0001) { startReverse(T); }
   setPlaying(true);
@@ -480,12 +508,13 @@ function renoise() {
   if (reduceMotion.matches) { tp = T; setPlaying(false); return; }
   setPlaying(true);
 }
-fieldBtn.addEventListener('click', () => setField(!fieldOn));
-function setField(on) { fieldOn = on; fieldBtn.setAttribute('aria-pressed', on ? 'true' : 'false'); if (on) ensureField(); }
-scrub.max = T;
+guessBtn.addEventListener('click', () => setGuess(!guessOn));
+function setGuess(on) { guessOn = on; guessBtn.setAttribute('aria-pressed', on ? 'true' : 'false'); legend.classList.toggle('on', on); }
+// tick marks: where each t sits on the (log noise) axis
+$('ticks').innerHTML = [100, 50, 20, 10, 5, 2, 0].map((t) => `<span style="left:${(uOf(t) * 100).toFixed(2)}%">${t}</span>`).join('');
 scrub.addEventListener('input', () => {
   setPlaying(false); autoRev = 0;
-  let t = T - parseFloat(scrub.value);
+  let t = tOf(parseFloat(scrub.value) / 1000);
   t = Math.max(lowest, t);
   tp = Math.min(T, Math.max(0, t));
 });
@@ -495,7 +524,7 @@ addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowRight') { setPlaying(false); tp = Math.max(lowest, Math.ceil(tp - 1e-6) - 1); }
   else if (e.key === 'ArrowLeft') { setPlaying(false); tp = Math.min(T, Math.floor(tp + 1e-6) + 1); }
   else if (e.key === 'r' || e.key === 'R') renoise();
-  else if (e.key === 'f' || e.key === 'F') setField(!fieldOn);
+  else if (e.key === 'g' || e.key === 'G') setGuess(!guessOn);
 });
 
 // ---------- orbit (drag / pinch / wheel), damped ----------
@@ -554,14 +583,21 @@ function frame(now) {
     else { tp = pendingStep; pendingStep = null; }
   }
   if (playing && !rm) {
+    // the playhead moves at an even pace in u (log noise level), easing in after Play and settling into t = 0
+    playT += dt;
+    const ramp = ease(Math.min(1, playT / 0.7));
+    let u = uOf(tp);
     if (dir === -1) {
+      let v = ramp * (1 - 0.65 * ease(Math.min(1, Math.max(0, (u - 0.82) / 0.18)))) / PLAY_S;
       // ease off when the playhead catches up with the workers, so a slow machine still moves smoothly
-      const rate = Math.min(3 + 17 * (tp / T), lowest > 0 ? Math.max(0, tp - lowest - 0.5) * 4 : 1e9);
-      tp -= rate * dt;
-      if (tp < lowest) { tp = lowest; waitT = lowest > 0 ? 1 : 0; }
+      if (lowest > 0) v = Math.min(v, Math.max(0, uOf(lowest) - u - 0.004) * 5);
+      u = Math.min(1, u + v * dt);
+      tp = Math.max(lowest, tOf(u));
+      if (lowest > 0 && tp - lowest < 0.02) waitT = 1;
       if (tp <= 0) { tp = 0; setPlaying(false); holdT = 0; }
     } else {
-      tp += 16 * dt;
+      u = Math.max(0, u - ramp * dt / RENOISE_S);
+      tp = tOf(u);
       if (tp >= T) { tp = T; setPlaying(false); autoRev = 0.9; }
     }
   }
@@ -576,11 +612,11 @@ function frame(now) {
   holdT = (!playing && tp <= 0.0001) ? holdT + dt : 0;
   const trailTarget = !playing && tp <= 0.0001 ? Math.max(0.28, 1 - holdT * 0.35) : 1;
   U.uTrail.value += (trailTarget - U.uTrail.value) * (rm ? 1 : 1 - Math.exp(-dt * 3));
-  // field slice
-  const kf = rm ? 1 : 1 - Math.exp(-dt * 5);
-  fieldVis += ((fieldOn ? 1 : 0) - fieldVis) * kf; if (Math.abs(fieldVis - (fieldOn ? 1 : 0)) < 0.002) fieldVis = fieldOn ? 1 : 0;
-  U.uField.value = fieldVis; fieldGroup.visible = fieldVis > 0.003;
-  if (fieldGroup.visible) { const ft = Math.max(1, Math.round(tp)); if (ft !== fieldShownT && updateArrows(ft)) fieldShownT = ft; }
+  // guess layer (needs a network step, so it fades out while re-noising)
+  const haveGuess = guessOn || guessGroup.visible ? updateGuess(tp) : false;
+  const gTarget = guessOn && haveGuess ? 1 : 0, kf = rm ? 1 : 1 - Math.exp(-dt * 5);
+  guessVis += (gTarget - guessVis) * kf; if (Math.abs(guessVis - gTarget) < 0.002) guessVis = gTarget;
+  U.uGuess.value = guessVis; guessGroup.visible = guessVis > 0.003;
   // camera: damped orbit plus a slow drift when idle
   idleT += dt;
   const sway = rm || drag || fixedView ? 0 : Math.sin(now * 0.0001) * 0.22 * Math.min(1, idleT / 5);
@@ -590,18 +626,21 @@ function frame(now) {
   camera.position.set(Math.sin(az) * Math.cos(el) * r, Math.sin(el) * r, Math.cos(az) * Math.cos(el) * r);
   camera.lookAt(0, 0, 0);
   // UI text
-  scrub.value = String(T - tp);
-  scrub.style.setProperty('--p', ((1 - tp / T) * 100).toFixed(2) + '%');
+  const up = uOf(tp);
+  scrub.value = String(Math.round(up * 1000));
+  scrub.style.setProperty('--p', (up * 100).toFixed(2) + '%');
   const ti = Math.round(tp);
   const phase = waitT ? 'computing' : ti === T ? 'noise' : ti === 0 ? 'knot' : dir === -1 ? 'denoising' : 'adding noise';
   const lab = ti + '|' + phase;
   if (lab !== lastLabel) {
     lastLabel = lab;
     readout.innerHTML = `t = ${ti}<small>${phase}</small>`;
+    scrub.setAttribute('aria-valuetext', `t = ${ti}, ${phase}`);
     const sig = Math.sqrt(MODEL.abar[ti]), noi = Math.sqrt(1 - MODEL.abar[ti]);
     meta.innerHTML = `<div><span>${fmt(N)}</span> points · trefoil knot</div>` +
       `<div class="wide"><span>3 × 128</span> MLP · <span>${fmt(MODEL.params)}</span> params</div>` +
       `<div class="wide"><span>T = ${T}</span> steps · held-out loss <span>${MODEL.loss.toFixed(3)}</span></div>` +
+      `<div class="wide">built with Claude for Joe Gao</div>` +
       `<div>signal <span class="acc">${sig.toFixed(2)}</span> · noise <span>${noi.toFixed(2)}</span></div>`;
   }
   cpuMs += (performance.now() - c0 - cpuMs) * 0.05;
@@ -617,6 +656,7 @@ function boot() {
   frames[T] = x;
   layout();
   addEventListener('resize', layout);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(layout);   // the caption's height depends on the font
   startReverse(T);
   setPlaying(false);
   requestAnimationFrame(frame);
@@ -627,8 +667,12 @@ function boot() {
 window.__noise = {
   get fps() { return fps; }, get cpuMs() { return cpuMs; }, get tp() { return tp; }, get lowest() { return lowest; }, get dir() { return dir; },
   get stepMs() { return lastStepMs; }, get playing() { return playing; }, get workers() { return NW; },
-  frame(t) { return frames[t]; }, fieldReady(t) { return !!fieldFrames[t]; },
-  seek(t) { setPlaying(false); tp = t; }, play, renoise, field: setField,
+  frame(t) { return frames[t]; }, guess(t) { return guessAt(t); }, uOf, tOf,
+  // on-screen width of the final samples (2nd to 98th percentile), as a fraction of the viewport width
+  screenWidth() { const f = frames[0], v = new THREE.Vector3(), xs = []; if (!f) return null;
+    for (let i = 0; i < N; i++) { v.set(f[3 * i], f[3 * i + 1], f[3 * i + 2]).project(camera); xs.push(v.x); }
+    xs.sort((a, b) => a - b); return +((xs[Math.floor(0.98 * N)] - xs[Math.floor(0.02 * N)]) / 2).toFixed(3); },
+  seek(t) { setPlaying(false); tp = t; }, play, renoise, setGuess, get guessVis() { return guessVis; },
   setView(az, el, zoom) { view.taz = az; view.tel = el; if (zoom) view.tzoom = zoom; fixedView = true; },
 };
 })();

@@ -640,8 +640,8 @@ function frame(now) {
     meta.innerHTML = `<div><span>${fmt(N)}</span> points · trefoil knot</div>` +
       `<div class="wide"><span>3 × 128</span> MLP · <span>${fmt(MODEL.params)}</span> params</div>` +
       `<div class="wide"><span>T = ${T}</span> steps · held-out loss <span>${MODEL.loss.toFixed(3)}</span></div>` +
-      `<div class="wide">built with Claude for Joe Gao</div>` +
-      `<div>signal <span class="acc">${sig.toFixed(2)}</span> · noise <span>${noi.toFixed(2)}</span></div>`;
+      `<div>signal <span class="acc">${sig.toFixed(2)}</span> · noise <span>${noi.toFixed(2)}</span></div>` +
+      `<div class="credit">built with Claude for Joe Gao</div>`;
   }
   cpuMs += (performance.now() - c0 - cpuMs) * 0.05;
   renderer.render(scene, camera);

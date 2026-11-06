@@ -32,6 +32,8 @@ h1{font-family:var(--serif);font-weight:400;font-style:italic;font-size:30px;let
 .meta{font-size:11px;letter-spacing:.04em;color:#5d5d5d;text-align:right;line-height:1.7;white-space:nowrap;font-variant-numeric:tabular-nums}
 .meta span{color:var(--dim)}
 .meta .acc{color:var(--accent)}
+.meta .src{color:#4a4a4a}
+.meta .credit{color:#4a4a4a}
 .dock{position:fixed;left:0;right:0;bottom:0;padding:0 32px 26px;display:flex;flex-direction:column;align-items:center;gap:18px;pointer-events:none}
 .scrub{pointer-events:auto;width:min(760px,100%);display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px}
 .track{position:relative}
@@ -98,8 +100,8 @@ button{font:500 13px/1 var(--sans);letter-spacing:.02em;border:0;border-radius:9
   <div>
     <h1>Noise, undone</h1>
     <p class="caption">
-      <span>In training, noise is added to points on a knot, a little at a time, until nothing of the knot is left.</span>
-      <span>A small network learns one thing: look at a noisy point and <b>predict the noise</b> that was added.</span>
+      <span>In training, noise is added to points on a knot, up to the point where nothing of the knot is left.</span>
+      <span>A small network learns one thing: at any noise level, <b>predict the noise</b> that was added.</span>
       <span>Run it backwards, and 4,000 points of pure noise find their way into the knot.</span>
     </p>
   </div>
@@ -641,6 +643,8 @@ function frame(now) {
       `<div class="wide"><span>3 × 128</span> MLP · <span>${fmt(MODEL.params)}</span> params</div>` +
       `<div class="wide"><span>T = ${T}</span> steps · held-out loss <span>${MODEL.loss.toFixed(3)}</span></div>` +
       `<div>signal <span class="acc">${sig.toFixed(2)}</span> · noise <span>${noi.toFixed(2)}</span></div>` +
+      `<div class="src">after DDPM (Ho, Jain &amp; Abbeel 2020), DDIM (Song, Meng &amp; Ermon 2020)</div>` +
+      `<div class="src">and the cosine schedule (Nichol &amp; Dhariwal 2021)</div>` +
       `<div class="credit">built with Claude for Joe Gao</div>`;
   }
   cpuMs += (performance.now() - c0 - cpuMs) * 0.05;

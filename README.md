@@ -6,7 +6,7 @@
 
 A tiny diffusion model, trained from scratch, running entirely in the browser. It starts with 4,000 points of pure Gaussian noise and moves them, step by step, into a trefoil knot. You watch it happen in 3D.
 
-The third piece in a set: [micrograd 3D](https://github.com/joezgao/micrograd-3d) shows a network learning, [Attention, in space](https://github.com/joezgao/attention-in-space) shows a transformer reading, and this one shows a generative model creating, using the score-based / diffusion idea (Sohl-Dickstein et al. 2015, Song & Ermon 2019, Ho et al. 2020).
+The third piece in a set: [micrograd 3D](https://github.com/joezgao/micrograd-3d) shows a network learning, [Attention, in space](https://github.com/joezgao/attention-in-space) shows a transformer reading, and this one shows a generative model creating, using the score-based / diffusion idea (Sohl-Dickstein et al. 2015, Song & Ermon 2019, Ho, Jain & Abbeel 2020). The sampler is DDIM (Song, Meng & Ermon 2020) and the noise schedule is the cosine schedule (Nichol & Dhariwal 2021).
 
 ## Open it
 
@@ -32,8 +32,8 @@ Points start grey and take on the cyan accent as the knot forms; each keeps a fa
 |---|---|
 | Data | A trefoil knot, (sin s + 2 sin 2s, cos s − 2 cos 2s, −sin 3s) scaled by (0.5, 0.5, 0.8), thickened into a tube of radius 0.06; fresh samples every batch |
 | Network ε_θ(x_t, t) | x plus sin/cos Fourier features at 6 frequencies (39 dims) and a sinusoidal time embedding (32 dims) → 3 hidden layers of 128 SiLU units (last two residual) → 3 outputs. **42,627 parameters** |
-| Diffusion | DDPM, **T = 100**, cosine schedule (Nichol & Dhariwal) with β clipped at 0.25; simple MSE loss on the noise, t uniform |
-| Sampler | DDIM (η = 0) on the page, deterministic and smooth; DDPM ancestral with `?ddpm` |
+| Diffusion | DDPM, **T = 100**, cosine schedule (Nichol & Dhariwal 2021) with β clipped at 0.25; simple MSE loss on the noise, t uniform |
+| Sampler | DDIM (Song, Meng & Ermon 2020; η = 0) on the page, deterministic and smooth; DDPM ancestral with `?ddpm` |
 | Loss | Held-out MSE **0.2861** on 200k fresh draws, unchanged with the shipped fp16 weights. About 0.29 is the floor for this data: at large t the noise cannot be predicted |
 | Quality | Distance from 4,000 samples to the knot's centre line, shipped weights: DDIM median 0.027, 99.6 % within 0.12; DDPM median 0.025, 99.9 % within 0.12 (real data: median 0.043). No dropped segment |
 | Shipped weights | float16, base64-inlined (85 kB raw) |

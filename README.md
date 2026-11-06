@@ -14,7 +14,7 @@ Open `noise-undone.html` in a recent browser. It is a single 150 kB file; it nee
 python3 -m http.server 8000   # then open http://localhost:8000/noise-undone.html
 ```
 
-| | |
+| Control | What it does |
 |---|---|
 | **Play / Pause** (<kbd>Space</kbd>) | runs the reverse process from t = 100 (noise) to t = 0 (knot); playback slows near the end, where the knot actually forms |
 | **Scrubber** (<kbd>←</kbd> <kbd>→</kbd>) | moves through the diffusion steps |
@@ -26,7 +26,7 @@ Points start grey and take on the cyan accent as the knot forms; each keeps a fa
 
 ## The model
 
-| | |
+| | Value |
 |---|---|
 | Data | A trefoil knot, (sin s + 2 sin 2s, cos s − 2 cos 2s, −sin 3s) scaled by (0.5, 0.5, 0.8), thickened into a tube of radius 0.06; fresh samples every batch |
 | Network ε_θ(x_t, t) | x plus sin/cos Fourier features at 6 frequencies (39 dims) and a sinusoidal time embedding (32 dims) → 3 hidden layers of 128 SiLU units (last two residual) → 3 outputs. **42,627 parameters** |

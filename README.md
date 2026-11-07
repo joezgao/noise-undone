@@ -10,7 +10,7 @@ The third piece in a set: [micrograd 3D](https://github.com/joezgao/micrograd-3d
 
 ## Open it
 
-Open `noise-undone.html` in a recent browser. It is a single 150 kB file; it needs an internet connection to load three.js and two fonts. If your browser blocks local files:
+Open `noise-undone.html` in a recent browser. It is a single 160 kB file; it needs an internet connection to load three.js and two fonts. If your browser blocks local files:
 
 ```bash
 python3 -m http.server 8000   # then open http://localhost:8000/noise-undone.html
@@ -22,6 +22,7 @@ python3 -m http.server 8000   # then open http://localhost:8000/noise-undone.htm
 | **Scrubber** (<kbd>←</kbd> <kbd>→</kbd>) | the same log-noise axis; ticks mark t = 100, 50, 20, 10, 5, 2, 0, and t = 10 sits mid-track, because the knot only becomes legible below t ≈ 15 |
 | **Re-noise** (<kbd>R</kbd>) | runs the *forward* process until the knot is gone, then the model draws a new knot from that new noise |
 | **Guess** (<kbd>G</kbd>) | for every point, the network's estimate of the clean point it came from, x̂₀ = (x_t − √(1−ᾱ_t) ε̂) / √ᾱ_t, drawn in the accent colour, with a faint line from one point in eight to its guess: the denoising direction (by Tweedie's formula, the learned score) |
+| **How it works** (top right) | the noise schedule, the network and the sampler, with the papers they come from; × or <kbd>Esc</kbd> closes it |
 | Drag / scroll / double-click | orbit / zoom / reset |
 
 Points start grey and take on the cyan accent as the knot forms; each keeps a fading trail of its last 14 steps. Add `?ddpm` to the URL for the stochastic sampler (jittery Brownian paths instead of smooth curves). With `prefers-reduced-motion` there is no autoplay or camera drift, and the main button becomes **Step** (10 diffusion steps per press).

@@ -60,7 +60,7 @@ Points start grey and take on the cyan accent as the knot forms; each keeps a fa
 - `noise-undone.html`: the piece
 - `screenshots/`: t = 100, t = 20, t = 0, the guesses, and a phone view
 
-The NumPy training, gradient-check and export scripts are not in this repository yet.
+The NumPy training, gradient-check and export scripts were lost and are not included in this repository. The trained weights the page uses are inlined in the HTML.
 
 ## License
 

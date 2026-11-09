@@ -10,6 +10,8 @@ The third piece in a set: [micrograd 3D](https://github.com/joezgao/micrograd-3d
 
 ## Open it
 
+**Live:** [joezgao.github.io/noise-undone/noise-undone.html](https://joezgao.github.io/noise-undone/noise-undone.html) (nothing to install).
+
 Open `noise-undone.html` in a recent browser. It is a single 160 kB file; it needs an internet connection to load three.js and two fonts. If your browser blocks local files:
 
 ```bash

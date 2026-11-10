@@ -54,7 +54,7 @@ Points start grey and take on the cyan accent as the knot forms; each keeps a fa
 - The data is one fixed 3D shape with no conditioning: a small, faithful DDPM, not a demonstration of scale.
 - The loss alone says little about quality; the distance-to-knot numbers are the real check. About 0.4 % of DDIM samples land off the tube.
 - Frame rate was not measured on a real GPU. Main-thread JavaScript is about 1 ms per frame; on a slow phone, computing the 100 steps is the bottleneck.
-- A guess is not where a point ends up: x̂₀ is a posterior mean, averaged over every clean point that could have produced x_t. At t = 20 the points are still a cloud (median 0.36 from the knot) while their guesses already trace it (0.083).
+- A guess is not where a point ends up: x̂₀ is a posterior mean, averaged over every clean point that could have produced x_t. At t = 20 the points are still a cloud (median 0.35 from the knot) while their guesses already trace it (0.083).
 - The knot forms late: under the cosine schedule the points only show it in roughly the last 10–15 of 100 steps. The log-noise axis gives those steps half the track, and Guess shows the knot already present in the network's predictions.
 
 ## In this repository

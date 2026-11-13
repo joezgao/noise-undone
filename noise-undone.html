@@ -713,10 +713,10 @@ function frame(now) {
     readout.innerHTML = `t = ${ti}<small>${phase}</small>`;
     scrub.setAttribute('aria-valuetext', `t = ${ti}, ${phase}`);
     const sig = Math.sqrt(MODEL.abar[ti]), noi = Math.sqrt(1 - MODEL.abar[ti]);
-    meta.innerHTML = `<div><span>${fmt(N)}</span> points · trefoil knot</div>` +
-      `<div class="wide"><span>3 × 128</span> MLP · <span>${fmt(MODEL.params)}</span> params</div>` +
-      `<div class="wide"><span>T = ${T}</span> steps · held-out loss <span>${MODEL.loss.toFixed(3)}</span></div>` +
-      `<div>signal <span class="acc">${sig.toFixed(2)}</span> · noise <span>${noi.toFixed(2)}</span></div>`;
+    meta.innerHTML = `<div><span>${fmt(N)}</span> points, trefoil knot</div>` +
+      `<div class="wide"><span>3 × 128</span> MLP, <span>${fmt(MODEL.params)}</span> params</div>` +
+      `<div class="wide"><span>T = ${T}</span> steps, held-out loss <span>${MODEL.loss.toFixed(3)}</span></div>` +
+      `<div>signal <span class="acc">${sig.toFixed(2)}</span>, noise <span>${noi.toFixed(2)}</span></div>`;
   }
   cpuMs += (performance.now() - c0 - cpuMs) * 0.05;
   renderer.render(scene, camera);

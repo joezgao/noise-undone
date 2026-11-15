@@ -55,7 +55,7 @@ The loss and quality numbers are what `python3 check/verify_readme.py` prints wi
 
 - The data is one fixed 3D shape with no conditioning: a small, faithful DDPM, not a demonstration of scale.
 - The loss alone says little about quality; the distance-to-knot numbers are the real check. About 0.4 % of DDIM samples land off the tube.
-- Frame rate was not measured on a real GPU. Main-thread JavaScript is about 1 ms per frame; on a slow phone, computing the 100 steps is the bottleneck.
+- Frame rate was measured on one machine only: an Apple M5 Pro, headless Chromium 155 over Metal, 60 fps. Main-thread JavaScript there is about 1 ms per frame (median 0.8 ms, p95 1.2 ms over 480 frames, timed around each `requestAnimationFrame` callback). On a slow phone, computing the 100 steps in the workers is the bottleneck.
 - A guess is not where a point ends up: x̂₀ is a posterior mean, averaged over every clean point that could have produced x_t. At t = 20 the points are still a cloud (median 0.35 from the knot) while their guesses already trace it (median 0.085; 0.083–0.087 over DDIM seeds 0–11).
 - The knot forms late: under the cosine schedule the points only show it in roughly the last 10–15 of 100 steps. The log-noise axis gives those steps half the track, and Guess shows the knot already present in the network's predictions.
 

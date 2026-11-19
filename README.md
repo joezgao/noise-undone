@@ -37,9 +37,11 @@ Points start grey and take on the cyan accent as the knot forms; each keeps a fa
 | Network ε_θ(x_t, t) | x plus sin/cos Fourier features at 6 frequencies (39 dims) and a sinusoidal time embedding (32 dims) → 3 hidden layers of 128 SiLU units (last two residual) → 3 outputs. **42,627 parameters** |
 | Diffusion | DDPM, **T = 100**, cosine schedule (Nichol & Dhariwal 2021) with β clipped at 0.25; simple MSE loss on the noise, t uniform |
 | Sampler | DDIM (Song, Meng & Ermon 2020; η = 0) on the page, deterministic and smooth; DDPM ancestral with `?ddpm` |
-| Loss | Held-out MSE **0.2861** on 200k fresh draws, unchanged with the shipped fp16 weights. About 0.29 is the floor for this data: at large t the noise cannot be predicted |
-| Quality | Distance from 4,000 samples to the knot's centre line, shipped weights: DDIM median 0.027, 99.6 % within 0.12; DDPM median 0.025, 99.9 % within 0.12 (real data: median 0.043). No dropped segment |
+| Loss | Held-out MSE **0.2868** on 200k fresh draws with the shipped fp16 weights. About 0.29 is the floor for this data: at large t the noise cannot be predicted |
+| Quality | Distance from 4,000 samples to the knot's centre line, shipped weights: DDIM median 0.027, 99.6 % within 0.12; DDPM median 0.025, 100 % within 0.12 (real data: median 0.043). No dropped segment: the emptiest of 72 segments still gets 39 samples |
 | Shipped weights | float16, base64-inlined (85 kB raw) |
+
+The loss and quality numbers are what `python3 check/verify_readme.py` prints with its default seed 0, digit for digit. Another seed moves them by about 0.002 (seed 1: MSE 0.2851, DDIM 99.65 %, DDPM 99.98 %). The lost training-time evaluation reported 0.2861 and 99.9 %, inside that spread.
 
 **Training.** NumPy with a hand-written backward pass, checked against central finite differences in float64 (worst relative error 8.9e-9). Adam (0.9, 0.999), lr 2e-3 with a 500-step warmup and cosine decay to 5e-5, gradient-norm clipping at 1.0, batch 2,048, 40,000 steps, and an EMA of the weights (decay 0.999), which is what ships. 23 minutes on 2 CPU cores.
 
@@ -53,14 +55,15 @@ Points start grey and take on the cyan accent as the knot forms; each keeps a fa
 
 - The data is one fixed 3D shape with no conditioning: a small, faithful DDPM, not a demonstration of scale.
 - The loss alone says little about quality; the distance-to-knot numbers are the real check. About 0.4 % of DDIM samples land off the tube.
-- Frame rate was not measured on a real GPU. Main-thread JavaScript is about 1 ms per frame; on a slow phone, computing the 100 steps is the bottleneck.
-- A guess is not where a point ends up: x̂₀ is a posterior mean, averaged over every clean point that could have produced x_t. At t = 20 the points are still a cloud (median 0.36 from the knot) while their guesses already trace it (0.083).
+- Frame rate was measured on one machine only: an Apple M5 Pro, headless Chromium 155 over Metal, 60 fps. Main-thread JavaScript there is about 1 ms per frame (median 0.8 ms, p95 1.2 ms over 480 frames, timed around each `requestAnimationFrame` callback). On a slow phone, computing the 100 steps in the workers is the bottleneck, not drawing. Simulated on the same machine (390×844 at DPR 3, main thread throttled 4× and 6× through Chrome DevTools, each worker made 4× and 6× slower by running the network that many times, because DevTools throttling does not reach Web Workers): drawing stayed at 60 fps (frame-gap p95 16.7 ms) in every run; the 100 steps took 0.6 s at full speed, 5.4 s at 4×, 8.5 s at 6×, and 17.4 s at 6× with 2 workers instead of 4; Play slows to wait for them, so one pass takes 8.2 s, 9.7 s, 12.0 s and 19.6 s.
+- A guess is not where a point ends up: x̂₀ is a posterior mean, averaged over every clean point that could have produced x_t. At t = 20 the points are still a cloud (median 0.35 from the knot) while their guesses already trace it (median 0.085; 0.083–0.087 over DDIM seeds 0–11).
 - The knot forms late: under the cosine schedule the points only show it in roughly the last 10–15 of 100 steps. The log-noise axis gives those steps half the track, and Guess shows the knot already present in the network's predictions.
 
 ## In this repository
 
 - `noise-undone.html`: the piece
 - `screenshots/`: t = 100, t = 20, t = 0, the guesses, and a phone view
+- `check/verify_readme.py`: recomputes the model table above (parameters, held-out MSE, distance to the knot, segment coverage) from the weights inlined in the page; NumPy, about a minute; `python3 check/verify_readme.py noise-undone.html 1` runs it with another seed
 
 The NumPy training, gradient-check and export scripts were lost and are not included in this repository. The trained weights the page uses are inlined in the HTML.
 
